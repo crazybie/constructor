@@ -1,7 +1,6 @@
-package constructor_test
+package constructor
 
 import (
-	"github.com/crazybie/constructor"
 	"github.com/gocarina/gocsv"
 	"github.com/stretchr/testify/assert"
 	"sort"
@@ -37,7 +36,7 @@ ID,Mode,Value,Reward,Reward2,DESC
 3,1,6,50003,"1:50003,11:50003,16:50003,21:50003,23:50003","第三档奖励"`
 
 func loadTestCsv(r *RewardCfgs) error {
-	_, err := construtor.LoadAndConstruct(r, &r.Data, tableCsv)
+	_, err := LoadAndConstruct(r, &r.Data, tableCsv)
 	return err
 }
 
@@ -78,14 +77,14 @@ func Test_basic(t *testing.T) {
 	assert.Equal(t, r.Mode[1][3], r.Dict[3])
 }
 
-func BenchmarkLoadAndConstruct(b *testing.B) {
+func Benchmark_LoadAndConstruct(b *testing.B) {
 	r := &RewardCfgs{}
 	for i := 0; i < b.N; i++ {
 		loadTestCsv(r)
 	}
 }
 
-func BenchmarkLoadManually(b *testing.B) {
+func Benchmark_LoadManually(b *testing.B) {
 	ret := &RewardCfgs{
 		Dict: make(map[int64]*RewardCfg),
 		Mode: make(map[int32]map[int64]*RewardCfg),

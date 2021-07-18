@@ -289,7 +289,7 @@ func parseFieldConverters(objType reflect.Type) (ret map[string]converter) {
 	return ret
 }
 
-func constrcutObj(objValue reflect.Value, cache *map[string]converter) {
+func constructObj(objValue reflect.Value, cache *map[string]converter) {
 	panicIf(objValue.Kind() != reflect.Struct, "expect struct")
 
 	if len(*cache) == 0 {
@@ -316,7 +316,7 @@ func constructSlice(sliceValue reflect.Value) {
 	var cache map[string]converter
 	for i := 0; i < sliceValue.Len(); i++ {
 		objValue := sliceValue.Index(i).Elem()
-		constrcutObj(objValue, &cache)
+		constructObj(objValue, &cache)
 	}
 }
 
@@ -335,7 +335,7 @@ func Construct(ptr interface{}) (err error) {
 		constructSlice(v.Elem())
 	case reflect.Struct:
 		var cache map[string]converter
-		constrcutObj(v.Elem(), &cache)
+		constructObj(v.Elem(), &cache)
 	}
 	return nil
 }
