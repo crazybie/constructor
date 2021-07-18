@@ -1,5 +1,6 @@
 # constructor
 A tiny tool to make data-parsing and constructing deadly easy.
+
 Just writing a few config in the field tag and no more loading code any more.
 
 ```
