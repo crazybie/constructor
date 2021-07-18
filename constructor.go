@@ -1,29 +1,9 @@
+// Constructor
+// tiny tool to make data-parsing and construction deadly easy.
+//
 //
 // Copyright (C) 2020-2021 crazybie@git.com.
 //
-
-/*
-# Constructor
-
-tiny tool to make data-parsing and construction deadly simple.
-please check the unit tests for usage.
-
-## All supported converters:
-
-- from(field)
-- split(sep) / split(sep, converter)
-- map(converter)
-- dict(field)
-- obj(type)
-- group(field) / group(field, reduce)
-- sort(field) / sort(field, desc)
-
-## Performance tips
-
-due to the heavy usage of reflection, it performs much bad than a hand-written loader,
-so it's not a good idea to use it to handle super large tables.
-
-*/
 
 package construtor
 
