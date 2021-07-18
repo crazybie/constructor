@@ -5,7 +5,7 @@
 // Copyright (C) 2020-2021 crazybie@git.com.
 //
 
-package construtor
+package constructor
 
 import (
 	"errors"
