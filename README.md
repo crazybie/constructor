@@ -43,11 +43,11 @@ please check the unit tests for usage.
 - split(sep) / split(sep, converter)
 - map(converter)
 - dict(field)
-- obj(type)
+- obj(type) / obj(type, [field,]...)
 - group(field) / group(field, reduce)
 - sort(field) / sort(field, desc)
 
 ## Performance tips
 
-due to the heavy usage of reflection, it performs much bad than a hand-written loader,
+due to the heavy usage of reflection, it performs much worse than a hand-written loader,
 so it's not a good idea to use it to handle super large tables.

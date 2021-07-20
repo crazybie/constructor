@@ -20,7 +20,7 @@ type RewardCfg struct {
 	Value   int32
 	Reward  int32
 	Reward2 string         // 1:50001,11:50001,16:50001,21:50001,23:50001
-	Rewards []*LevelReward `cvt:"from(Reward2)|split(,)|map(split(:,int32)|obj(LevelReward))|sort(MinLevel)"`
+	Rewards []*LevelReward `cvt:"from(Reward2)|split(,)|map(split(:,int32)|obj(LevelReward,MinLevel,RewardId))|sort(MinLevel)"`
 }
 
 type RewardCfgs struct {

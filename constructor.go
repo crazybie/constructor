@@ -203,15 +203,31 @@ func newConverter(funName string, args []interface{}) converter {
 			return
 		}
 	case "obj":
-		return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
-			ret = reflect.New(findType(args[0].(string), ctx.fieldType))
-			for i := 0; i < rows.Len(); i++ {
-				src := rows.Index(i)
-				dst := ret.Elem().Field(i)
-				dst.Set(src.Convert(dst.Type()))
+		switch {
+		case len(args) == 1:
+			return func(row reflect.Value, ctx *context) (ret reflect.Value) {
+				ret = reflect.New(findType(args[0].(string), ctx.fieldType))
+				for i := 0; i < row.Len(); i++ {
+					src := row.Index(i)
+					dst := ret.Elem().Field(i)
+					dst.Set(src.Convert(dst.Type()))
+				}
+				return
 			}
-			return
+		case len(args) > 1:
+			return func(row reflect.Value, ctx *context) (ret reflect.Value) {
+				ret = reflect.New(findType(args[0].(string), ctx.fieldType))
+				for i := 0; i < row.Len(); i++ {
+					src := row.Index(i)
+					if i+1 < len(args) {
+						dst := ret.Elem().FieldByName(args[1+i].(string))
+						dst.Set(src.Convert(dst.Type()))
+					}
+				}
+				return
+			}
 		}
+
 	case "group":
 		switch len(args) {
 		case 1:
