@@ -36,15 +36,10 @@ ID,Mode,Value,Reward,Reward2,DESC
 2,1,3,50002,"1:50002,11:50002,16:50002,21:50002,23:50002","第二档奖励"
 3,1,6,50003,"1:50003,11:50003,16:50003,21:50003,23:50003","第三档奖励"`
 
-func loadTestCsv(r *RewardCfgs) error {
-	_, err := LoadAndConstruct(r, &r.Data, tableCsv)
-	return err
-}
-
 func Test_basic(t *testing.T) {
 
 	r := &RewardCfgs{}
-	err := loadTestCsv(r)
+	_, err := LoadAndConstruct(r, &r.Data, tableCsv)
 	assert.Zero(t, err)
 
 	assert.Equal(t, len(r.Data), 3)
@@ -84,7 +79,7 @@ func Test_basic(t *testing.T) {
 func Benchmark_LoadAndConstruct(b *testing.B) {
 	r := &RewardCfgs{}
 	for i := 0; i < b.N; i++ {
-		loadTestCsv(r)
+		LoadAndConstruct(r, &r.Data, tableCsv)
 	}
 }
 
@@ -99,6 +94,9 @@ func Benchmark_LoadManually(b *testing.B) {
 			if rs == nil {
 				ret.Mode[e.Mode] = make(map[int64]*RewardCfg)
 			}
+
+			e.ModeValue = append(e.ModeValue, e.Mode)
+			e.ModeValue = append(e.ModeValue, e.Value)
 
 			rewards := []*LevelReward{}
 			ss := strings.Split(e.Reward2, ",")

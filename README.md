@@ -72,7 +72,15 @@ please check the unit tests for usage.
     - input: slice of struct
     - output: slice sorted by field
     
-## Performance tips
+## Performance
 
 - due to the heavy usage of reflection, it performs much worse than a hand-written loader,
 so it's not a good idea to use it to handle super large tables.
+
+- Benchmark result:
+```
+Benchmark_LoadAndConstruct
+Benchmark_LoadAndConstruct-8         738          11834192 ns/op
+Benchmark_LoadManually
+Benchmark_LoadManually-8           38076             34654 ns/op
+```
