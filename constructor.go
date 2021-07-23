@@ -138,10 +138,25 @@ func newConverter(funName string, args []interface{}) converter {
 			return v
 		}
 	case "from":
-		return func(_ reflect.Value, ctx *context) (ret reflect.Value) {
-			ret = ctx.obj.FieldByName(args[0].(string))
-			panicIf(!ret.IsValid(), "invalid filed name: %v", args[0])
-			return
+		switch {
+		case len(args) == 1:
+			return func(_ reflect.Value, ctx *context) (ret reflect.Value) {
+				ret = ctx.obj.FieldByName(args[0].(string))
+				panicIf(!ret.IsValid(), "invalid filed name: %v", args[0])
+				return
+			}
+		case len(args) > 1:
+			return func(_ reflect.Value, ctx *context) (ret reflect.Value) {
+				for idx, arg := range args {
+					v := ctx.obj.FieldByName(arg.(string))
+					panicIf(!v.IsValid(), "invalid filed name: %v", arg)
+					if !ret.IsValid() {
+						ret = reflect.MakeSlice(reflect.SliceOf(v.Type()), len(args), len(args))
+					}
+					ret.Index(idx).Set(v)
+				}
+				return
+			}
 		}
 	case "split":
 		switch len(args) {

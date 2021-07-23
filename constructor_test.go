@@ -15,12 +15,13 @@ type LevelReward struct {
 }
 
 type RewardCfg struct {
-	ID      int64
-	Mode    int32
-	Value   int32
-	Reward  int32
-	Reward2 string         // 1:50001,11:50001,16:50001,21:50001,23:50001
-	Rewards []*LevelReward `cvt:"from(Reward2)|split(,)|map(split(:,int32)|obj(LevelReward,MinLevel,RewardId))|sort(MinLevel)"`
+	ID        int64
+	Mode      int32
+	Value     int32
+	ModeValue []int32 `cvt:"from(Mode,Value)"`
+	Reward    int32
+	Reward2   string         // 1:50001,11:50001,16:50001,21:50001,23:50001
+	Rewards   []*LevelReward `cvt:"from(Reward2)|split(,)|map(split(:,int32)|obj(LevelReward,MinLevel,RewardId))|sort(MinLevel)"`
 }
 
 type RewardCfgs struct {
@@ -47,6 +48,9 @@ func Test_basic(t *testing.T) {
 	assert.Zero(t, err)
 
 	assert.Equal(t, len(r.Data), 3)
+
+	assert.Equal(t, r.Data[0].ModeValue[0], r.Data[0].Mode)
+	assert.Equal(t, r.Data[0].ModeValue[1], r.Data[0].Value)
 
 	assert.Equal(t, len(r.Data[0].Rewards), 5)
 	rewards := r.Data[0].Rewards
