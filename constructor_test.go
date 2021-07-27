@@ -119,3 +119,22 @@ func Benchmark_LoadManually(b *testing.B) {
 		})
 	}
 }
+
+func Test_Dict2(t *testing.T) {
+	type Data struct {
+		Id  int32
+		Kvs string
+		Kv  map[string]float64 `cvt:"from(Kvs)|split(;)|map(split(:))|dict(select(0),select(1)|float64)"`
+	}
+
+	var data []*Data
+	LoadAndConstruct(nil, &data, `
+Id,Kvs
+1,"k1:11;k2:22;k3:33"
+`)
+	assert.Equal(t, len(data), 1)
+	assert.Equal(t, len(data[0].Kv), 3)
+	assert.Equal(t, data[0].Kv[`k1`], float64(11))
+	assert.Equal(t, data[0].Kv[`k2`], float64(22))
+	assert.Equal(t, data[0].Kv[`k3`], float64(33))
+}

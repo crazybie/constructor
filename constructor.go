@@ -49,7 +49,7 @@ type converter func(data reflect.Value, ctx *context) reflect.Value
 
 func panicIf(failed bool, msg string, a ...interface{}) {
 	if failed {
-		panic(fmt.Sprintf(msg, a...))
+		panic(fmt.Errorf(msg, a...))
 	}
 }
 
@@ -203,20 +203,43 @@ func newConverter(funName string, args []interface{}) converter {
 			}
 			return
 		}
-	case "dict":
-		return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
-			field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
-			panicIf(!ok, "invalid field: %v", args[0])
-			for i := 0; i < rows.Len(); i++ {
-				src := rows.Index(i)
-				key := src.Elem().Field(field.Index[0])
-				if !ret.IsValid() {
-					ret = reflect.MakeMapWithSize(reflect.MapOf(key.Type(), src.Type()), rows.Len())
-				}
-				ret.SetMapIndex(key, src)
-			}
-			return
+	case "select":
+		idx, err := strconv.Atoi(args[0].(string))
+		panicIf(err != nil, "not number: %v", args[0])
+		return func(row reflect.Value, ctx *context) (ret reflect.Value) {
+			return row.Index(idx)
 		}
+	case "dict":
+		switch args[0].(type) {
+		case string:
+			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
+				field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
+				panicIf(!ok, "invalid field: %v", args[0])
+				for i := 0; i < rows.Len(); i++ {
+					src := rows.Index(i)
+					key := src.Elem().Field(field.Index[0])
+					if !ret.IsValid() {
+						ret = reflect.MakeMapWithSize(reflect.MapOf(key.Type(), src.Type()), rows.Len())
+					}
+					ret.SetMapIndex(key, src)
+				}
+				return
+			}
+		case converter:
+			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
+				for i := 0; i < rows.Len(); i++ {
+					src := rows.Index(i)
+					key := args[0].(converter)(src, ctx)
+					val := args[1].(converter)(src, ctx)
+					if !ret.IsValid() {
+						ret = reflect.MakeMapWithSize(reflect.MapOf(key.Type(), val.Type()), rows.Len())
+					}
+					ret.SetMapIndex(key, val)
+				}
+				return
+			}
+		}
+
 	case "obj":
 		switch {
 		case len(args) == 1:
@@ -378,9 +401,11 @@ func UnmarshalStringToSlice(slicePtr interface{}, csv string) error {
 	panicIf(sliceValue.Kind() != reflect.Ptr, "expect pointer to slice")
 	rows := sliceValue.Elem()
 	panicIf(rows.Kind() != reflect.Slice, "expect pointer to slice")
+	sliceElemType := rows.Type().Elem()
+	panicIf(sliceElemType.Kind() != reflect.Ptr, "expect slice of pointer")
 
 	errChan := make(chan error)
-	c := reflect.MakeChan(reflect.ChanOf(reflect.BothDir, rows.Type().Elem().Elem()), 0)
+	c := reflect.MakeChan(reflect.ChanOf(reflect.BothDir, sliceElemType.Elem()), 0)
 	go func() {
 		errChan <- gocsv.UnmarshalToChan(strings.NewReader(csv), c.Interface())
 	}()
@@ -415,9 +440,11 @@ func LoadAndConstruct(objPtr interface{}, slicePtr interface{}, csv string) (ret
 	if err != nil {
 		return nil, err
 	}
-	err = Construct(objPtr)
-	if err != nil {
-		return nil, err
+	if objPtr != nil {
+		err = Construct(objPtr)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return objPtr, nil
 }

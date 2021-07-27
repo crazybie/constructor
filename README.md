@@ -52,13 +52,18 @@ please check the unit tests for usage.
 - split(sep, converter)
   - input: string value
   - output: slice of value converted by converter
-  
+- select(idx)
+  - input: slice
+  - output: element of slice at idx 
 - map(converter)
     - input: slice 
     - output: slice of return value of converter
 - dict(field)
     - input: slice of struct
     - output: dict with field as key and struct as value    
+- dict(key, val)
+    - input: slice of slice
+    - output: sub slice as input of key convertor and result as key, same to val.
 - obj(type) / obj(type, [field,]...)
     - input: slice
     - output: instance of type with fields assigned from slice elements
