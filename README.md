@@ -80,7 +80,7 @@ so it's not a good idea to use it to handle super large tables.
 - Benchmark result:
 ```
 Benchmark_LoadAndConstruct
-Benchmark_LoadAndConstruct-8         738          11834192 ns/op
+Benchmark_LoadAndConstruct-8        1167          14942971 ns/op
 Benchmark_LoadManually
-Benchmark_LoadManually-8           38076             34654 ns/op
+Benchmark_LoadManually-8           47370             27035 ns/op
 ```

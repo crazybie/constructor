@@ -309,7 +309,7 @@ func newConverter(funName string, args []interface{}) converter {
 }
 
 func parseFieldConverters(objType reflect.Type) (ret map[string]converter) {
-	ret = map[string]converter{}
+	ret = make(map[string]converter)
 	for i := 0; i < objType.NumField(); i++ {
 		fieldName := objType.Field(i).Name
 		f := objType.Field(i).Tag.Get("cvt")
@@ -320,19 +320,23 @@ func parseFieldConverters(objType reflect.Type) (ret map[string]converter) {
 	return ret
 }
 
-func constructObj(objValue reflect.Value, cache *map[string]converter) {
+var typeConverterCache = make(map[reflect.Type]map[string]converter)
+
+func constructObj(objValue reflect.Value) {
 	panicIf(objValue.Kind() != reflect.Struct, "expect struct")
 
-	if len(*cache) == 0 {
-		*cache = parseFieldConverters(objValue.Type())
+	objType := objValue.Type()
+
+	if typeConverterCache[objType] == nil {
+		typeConverterCache[objType] = parseFieldConverters(objType)
 	}
 
-	objType := objValue.Type()
 	ctx := &context{obj: objValue}
+	typeCache := typeConverterCache[objType]
 	for i := 0; i < objType.NumField(); i++ {
 		fieldInfo := objType.Field(i)
 		f := objValue.Field(i)
-		if c, ok := (*cache)[fieldInfo.Name]; ok {
+		if c, ok := typeCache[fieldInfo.Name]; ok {
 			ctx.fieldType = fieldInfo.Type
 			v := c(f, ctx)
 			if v.IsValid() {
@@ -344,10 +348,9 @@ func constructObj(objValue reflect.Value, cache *map[string]converter) {
 
 func constructSlice(sliceValue reflect.Value) {
 	panicIf(sliceValue.Kind() != reflect.Slice, "expect slice")
-	var cache map[string]converter
 	for i := 0; i < sliceValue.Len(); i++ {
 		objValue := sliceValue.Index(i).Elem()
-		constructObj(objValue, &cache)
+		constructObj(objValue)
 	}
 }
 
@@ -365,8 +368,7 @@ func Construct(ptr interface{}) (err error) {
 	case reflect.Slice:
 		constructSlice(v.Elem())
 	case reflect.Struct:
-		var cache map[string]converter
-		constructObj(v.Elem(), &cache)
+		constructObj(v.Elem())
 	}
 	return nil
 }
