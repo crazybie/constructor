@@ -1,8 +1,9 @@
-// Constructor
-// tiny tool to make data-parsing and construction deadly easy.
-//
 //
 // Copyright (C) 2020-2021 crazybie@git.com.
+//
+// Constructor
+//
+// tiny tool to make data-parsing and construction deadly easy.
 //
 
 package constructor
@@ -21,6 +22,8 @@ type context struct {
 	obj       reflect.Value
 	fieldType reflect.Type
 }
+
+type converter func(data reflect.Value, ctx *context) reflect.Value
 
 var buildInTypes = map[string]reflect.Type{
 	"int":     reflect.TypeOf(0),
@@ -44,8 +47,6 @@ func findType(t string, tp reflect.Type) reflect.Type {
 	}
 	panic(fmt.Sprintf("type not found: %v", t))
 }
-
-type converter func(data reflect.Value, ctx *context) reflect.Value
 
 func panicIf(failed bool, msg string, a ...interface{}) {
 	if failed {
@@ -331,7 +332,12 @@ func newConverter(funName string, args []interface{}) converter {
 	return nil
 }
 
-func parseFieldConverters(objType reflect.Type) (ret map[string]converter) {
+var typeConverterCache = make(map[reflect.Type]map[string]converter)
+
+func parseFields(objType reflect.Type) (ret map[string]converter) {
+	if cache, ok := typeConverterCache[objType]; ok {
+		return cache
+	}
 	ret = make(map[string]converter)
 	for i := 0; i < objType.NumField(); i++ {
 		fieldName := objType.Field(i).Name
@@ -340,26 +346,20 @@ func parseFieldConverters(objType reflect.Type) (ret map[string]converter) {
 			ret[fieldName] = parseConverter(f)
 		}
 	}
+	typeConverterCache[objType] = ret
 	return ret
 }
-
-var typeConverterCache = make(map[reflect.Type]map[string]converter)
 
 func constructObj(objValue reflect.Value) {
 	panicIf(objValue.Kind() != reflect.Struct, "expect struct")
 
 	objType := objValue.Type()
-
-	if typeConverterCache[objType] == nil {
-		typeConverterCache[objType] = parseFieldConverters(objType)
-	}
-
 	ctx := &context{obj: objValue}
-	typeCache := typeConverterCache[objType]
+	converters := parseFields(objType)
 	for i := 0; i < objType.NumField(); i++ {
 		fieldInfo := objType.Field(i)
 		f := objValue.Field(i)
-		if c, ok := typeCache[fieldInfo.Name]; ok {
+		if c, ok := converters[fieldInfo.Name]; ok {
 			ctx.fieldType = fieldInfo.Type
 			v := c(f, ctx)
 			if v.IsValid() {

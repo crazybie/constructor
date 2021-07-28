@@ -41,20 +41,20 @@ please check the unit tests for usage.
 ## All supported converters:
 
 - from(field)
-    - input: struct field
+    - input: none
     - output: field value
 - from(field, [field]...)
     - input: struct field
     - output: slice of field values
 - split(sep)
-    - input: string value
+    - input: none
     - output: slice of string
 - split(sep, converter)
   - input: string value
   - output: slice of value converted by converter
 - select(idx)
   - input: slice
-  - output: element of slice at idx 
+  - output: slice element at idx 
 - map(converter)
     - input: slice 
     - output: slice of return value of converter
