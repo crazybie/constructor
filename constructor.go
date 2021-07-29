@@ -9,7 +9,6 @@
 package constructor
 
 import (
-	"errors"
 	"fmt"
 	"github.com/gocarina/gocsv"
 	"reflect"
@@ -138,6 +137,7 @@ func newConverter(funName string, args []interface{}) converter {
 			}
 			return v
 		}
+
 	case "from":
 		switch {
 		case len(args) == 1:
@@ -380,7 +380,7 @@ func constructSlice(sliceValue reflect.Value) {
 func Construct(ptr interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.New(fmt.Sprintf("construct object failed: %v", r))
+			err = fmt.Errorf("construct object failed: %v", r)
 		}
 	}()
 

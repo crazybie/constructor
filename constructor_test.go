@@ -79,7 +79,7 @@ func Test_basic(t *testing.T) {
 func Benchmark_LoadAndConstruct(b *testing.B) {
 	r := &RewardCfgs{}
 	for i := 0; i < b.N; i++ {
-		LoadAndConstruct(r, &r.Data, tableCsv)
+		_, _ = LoadAndConstruct(r, &r.Data, tableCsv)
 	}
 }
 
@@ -89,7 +89,7 @@ func Benchmark_LoadManually(b *testing.B) {
 		Mode: make(map[int32]map[int64]*RewardCfg),
 	}
 	for i := 0; i < b.N; i++ {
-		gocsv.UnmarshalStringToCallback(tableCsv, func(e RewardCfg) {
+		_ = gocsv.UnmarshalStringToCallback(tableCsv, func(e RewardCfg) {
 			rs := ret.Mode[e.Mode]
 			if rs == nil {
 				ret.Mode[e.Mode] = make(map[int64]*RewardCfg)
@@ -131,7 +131,7 @@ func Test_Dict2(t *testing.T) {
 		Id:  1,
 		Kvs: "k1:11;k2:22;k3:33",
 	}
-	Construct(d)
+	_ = Construct(d)
 	assert.Equal(t, len(d.Kv), 3)
 	assert.Equal(t, d.Kv[`k1`], float64(11))
 	assert.Equal(t, d.Kv[`k2`], float64(22))
