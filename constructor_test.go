@@ -3,6 +3,7 @@ package constructor
 import (
 	"github.com/gocarina/gocsv"
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -136,4 +137,24 @@ func Test_Dict2(t *testing.T) {
 	assert.Equal(t, d.Kv[`k1`], float64(11))
 	assert.Equal(t, d.Kv[`k2`], float64(22))
 	assert.Equal(t, d.Kv[`k3`], float64(33))
+}
+
+func Test_CustomConverter(t *testing.T) {
+	type Data struct {
+		Id       int32
+		Str      string
+		LowerStr string `cvt:"from(Str)|lower"`
+	}
+
+	d := &Data{
+		Id:  1,
+		Str: "ABC",
+	}
+	ConverterFactory[`lower`] = func(args []interface{}) converter {
+		return func(data reflect.Value, ctx *context) reflect.Value {
+			return reflect.ValueOf(strings.ToLower(data.Interface().(string)))
+		}
+	}
+	_ = Construct(d)
+	assert.Equal(t, d.LowerStr, "abc")
 }

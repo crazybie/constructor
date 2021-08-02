@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/gocarina/gocsv"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +24,9 @@ type context struct {
 }
 
 type converter func(data reflect.Value, ctx *context) reflect.Value
+type ConverterCreator func([]interface{}) converter
+
+var ConverterFactory = map[string]ConverterCreator{}
 
 var buildInTypes = map[string]reflect.Type{
 	"int":     reflect.TypeOf(0),
@@ -30,6 +34,10 @@ var buildInTypes = map[string]reflect.Type{
 	"int64":   reflect.TypeOf(int64(0)),
 	"float32": reflect.TypeOf(float32(0)),
 	"float64": reflect.TypeOf(float64(0)),
+}
+
+func init() {
+	registerBuildInConverters()
 }
 
 func findType(t string, tp reflect.Type) reflect.Type {
@@ -56,7 +64,8 @@ func panicIf(failed bool, msg string, a ...interface{}) {
 func tokenize(input string) []string {
 	tokens := []string{}
 	s := 0
-	for i := 0; i < len(input); i++ {
+	i := 0
+	for ; i < len(input); i++ {
 		r := input[i]
 		if r == '(' || r == ')' || r == '|' || r == ',' || r == ' ' {
 			if s != i {
@@ -67,6 +76,9 @@ func tokenize(input string) []string {
 			}
 			s = i + 1
 		}
+	}
+	if s != i {
+		tokens = append(tokens, input[s:i])
 	}
 	tokens = append(tokens, "<EOF>")
 	return tokens
@@ -104,7 +116,7 @@ func parseConverter(input string) converter {
 	}
 	call = func() converter {
 		fnName := tokens[cur]
-		if tokens[cur+1] == "(" {
+		if cur+1 < len(tokens) && tokens[cur+1] == "(" {
 			cur += 2
 			args := []interface{}{}
 			for tokens[cur] != ")" {
@@ -114,7 +126,9 @@ func parseConverter(input string) converter {
 				}
 			}
 			cur++
-			return newConverter(fnName, args)
+			fn := newConverter(fnName, args)
+			panicIf(fn == nil, "invalid convertor: %v", fnName)
+			return fn
 		}
 		if fn := newConverter(fnName, nil); fn != nil {
 			cur++
@@ -125,9 +139,24 @@ func parseConverter(input string) converter {
 	return expr()
 }
 
-func newConverter(funName string, args []interface{}) converter {
-	switch funName {
-	case "sequence":
+func registerNumberConverter(funName string) {
+	ConverterFactory[funName] = func(args []interface{}) converter {
+		return func(valueStr reflect.Value, ctx *context) (ret reflect.Value) {
+			v, err := strconv.ParseFloat(valueStr.String(), 64)
+			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
+			return reflect.ValueOf(v).Convert(buildInTypes[funName])
+		}
+	}
+}
+
+func registerBuildInConverters() {
+	registerNumberConverter(`int`)
+	registerNumberConverter(`int32`)
+	registerNumberConverter(`int64`)
+	registerNumberConverter(`float32`)
+	registerNumberConverter(`float64`)
+
+	ConverterFactory[`sequence`] = func(args []interface{}) converter {
 		return func(rows reflect.Value, ctx *context) reflect.Value {
 			v := rows
 			for _, op := range args {
@@ -137,8 +166,9 @@ func newConverter(funName string, args []interface{}) converter {
 			}
 			return v
 		}
+	}
 
-	case "from":
+	ConverterFactory[`from`] = func(args []interface{}) converter {
 		switch {
 		case len(args) == 1:
 			return func(_ reflect.Value, ctx *context) (ret reflect.Value) {
@@ -159,7 +189,10 @@ func newConverter(funName string, args []interface{}) converter {
 				return
 			}
 		}
-	case "split":
+		return nil
+	}
+
+	ConverterFactory[`split`] = func(args []interface{}) converter {
 		switch len(args) {
 		case 1:
 			return func(s reflect.Value, ctx *context) (ret reflect.Value) {
@@ -185,14 +218,10 @@ func newConverter(funName string, args []interface{}) converter {
 				return
 			}
 		}
+		return nil
+	}
 
-	case "int", "int32", "int64", "float32", "float64":
-		return func(valueStr reflect.Value, ctx *context) (ret reflect.Value) {
-			v, err := strconv.ParseFloat(valueStr.String(), 64)
-			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
-			return reflect.ValueOf(v).Convert(buildInTypes[funName])
-		}
-	case "map":
+	ConverterFactory[`map`] = func(args []interface{}) converter {
 		return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
 			op := args[0].(converter)
 			for i := 0; i < rows.Len(); i++ {
@@ -204,13 +233,17 @@ func newConverter(funName string, args []interface{}) converter {
 			}
 			return
 		}
-	case "select":
+	}
+
+	ConverterFactory[`select`] = func(args []interface{}) converter {
 		idx, err := strconv.Atoi(args[0].(string))
 		panicIf(err != nil, "not number: %v", args[0])
 		return func(row reflect.Value, ctx *context) (ret reflect.Value) {
 			return row.Index(idx)
 		}
-	case "dict":
+	}
+
+	ConverterFactory[`dict`] = func(args []interface{}) converter {
 		switch args[0].(type) {
 		case string:
 			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
@@ -240,8 +273,10 @@ func newConverter(funName string, args []interface{}) converter {
 				return
 			}
 		}
+		return nil
+	}
 
-	case "obj":
+	ConverterFactory[`obj`] = func(args []interface{}) converter {
 		switch {
 		case len(args) == 1:
 			return func(row reflect.Value, ctx *context) (ret reflect.Value) {
@@ -266,8 +301,10 @@ func newConverter(funName string, args []interface{}) converter {
 				return
 			}
 		}
+		return nil
+	}
 
-	case "group":
+	ConverterFactory[`group`] = func(args []interface{}) converter {
 		switch len(args) {
 		case 1:
 			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
@@ -290,7 +327,7 @@ func newConverter(funName string, args []interface{}) converter {
 			}
 		case 2:
 			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
-				tmp := newConverter(funName, args[:1])(rows, ctx)
+				tmp := newConverter(`group`, args[:1])(rows, ctx)
 				op := args[1].(converter)
 				for _, k := range tmp.MapKeys() {
 					src := tmp.MapIndex(k)
@@ -303,7 +340,10 @@ func newConverter(funName string, args []interface{}) converter {
 				return ret
 			}
 		}
-	case "sort":
+		return nil
+	}
+
+	ConverterFactory[`sort`] = func(args []interface{}) converter {
 		return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
 			field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
 			fIdx := field.Index[0]
@@ -328,6 +368,12 @@ func newConverter(funName string, args []interface{}) converter {
 			})
 			return rows
 		}
+	}
+}
+
+func newConverter(funName string, args []interface{}) converter {
+	if c, ok := ConverterFactory[funName]; ok {
+		return c(args)
 	}
 	return nil
 }
@@ -380,7 +426,7 @@ func constructSlice(sliceValue reflect.Value) {
 func Construct(ptr interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("construct object failed: %v", r)
+			err = fmt.Errorf("construct object failed: %v, stack: %s", r, debug.Stack())
 		}
 	}()
 
