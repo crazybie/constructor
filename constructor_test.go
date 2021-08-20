@@ -78,6 +78,7 @@ func Test_basic(t *testing.T) {
 }
 
 func Benchmark_LoadAndConstruct(b *testing.B) {
+	b.ReportAllocs()
 	r := &RewardCfgs{}
 	for i := 0; i < b.N; i++ {
 		_, _ = LoadAndConstruct(r, &r.Data, tableCsv)
@@ -85,6 +86,7 @@ func Benchmark_LoadAndConstruct(b *testing.B) {
 }
 
 func Benchmark_LoadManually(b *testing.B) {
+	b.ReportAllocs()
 	ret := &RewardCfgs{
 		Dict: make(map[int64]*RewardCfg),
 		Mode: make(map[int32]map[int64]*RewardCfg),

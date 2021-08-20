@@ -329,8 +329,9 @@ func registerBuildInConverters() {
 			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
 				tmp := newConverter(`group`, args[:1])(rows, ctx)
 				op := args[1].(converter)
-				for _, k := range tmp.MapKeys() {
-					src := tmp.MapIndex(k)
+				for iter := tmp.MapRange(); iter.Next(); {
+					k := iter.Key()
+					src := iter.Value()
 					val := op(src, ctx)
 					if !ret.IsValid() {
 						ret = reflect.MakeMap(reflect.MapOf(k.Type(), val.Type()))
