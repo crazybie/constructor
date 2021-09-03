@@ -39,7 +39,6 @@ LoadAndConstruct(r, &r.Data, tableCsv)
 #Usage
 
 Data flow:<br>
-<intput> -> converter(args...) -> <ouput> | -> <next converter> -> | ...
 <br> 类似unix管道，上个函数的输出用|作为下个函数的输入，然后级联下去。
 <br> converter1(args...)|converter2(args...)|converter3(args...)|converter4(args...)...
 
