@@ -182,13 +182,13 @@ func TestConstruct_Sort(t *testing.T) {
 
 	type S struct {
 		S  []string
-		S2 []string `cvt:"from(S)|sort"`
+		S2 []string `cvt:"from(S)|sort(_,desc)"`
 	}
 	s := S{
 		S: []string{"a", "c", "b"},
 	}
 	Construct(&s)
-	Equal(t, s.S2[0], "a")
+	Equal(t, s.S2[0], "c")
 	Equal(t, s.S2[1], "b")
-	Equal(t, s.S2[2], "c")
+	Equal(t, s.S2[2], "a")
 }

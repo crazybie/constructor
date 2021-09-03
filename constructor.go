@@ -358,7 +358,7 @@ func registerBuildInConverters() {
 			var elemType reflect.Type
 			var compareValues reflect.Value
 
-			if len(args) > 0 {
+			if len(args) > 0 && args[0].(string) != "_" {
 				field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
 				elemType = field.Type
 				fIdx := field.Index[0]
@@ -384,7 +384,7 @@ func registerBuildInConverters() {
 					if asc {
 						return compareValues.Index(i).String() < compareValues.Index(j).String()
 					} else {
-						return compareValues.Index(i).String() > compareValues.Index(i).String()
+						return compareValues.Index(i).String() > compareValues.Index(j).String()
 					}
 				}
 			case reflect.Bool, reflect.Int, reflect.Int32, reflect.Int16, reflect.Int64:
@@ -392,7 +392,7 @@ func registerBuildInConverters() {
 					if asc {
 						return compareValues.Index(i).Int() < compareValues.Index(j).Int()
 					} else {
-						return compareValues.Index(i).Int() > compareValues.Index(i).Int()
+						return compareValues.Index(i).Int() > compareValues.Index(j).Int()
 					}
 				}
 			case reflect.Float64, reflect.Float32:
@@ -400,7 +400,7 @@ func registerBuildInConverters() {
 					if asc {
 						return compareValues.Index(i).Float() < compareValues.Index(j).Float()
 					} else {
-						return compareValues.Index(i).Float() > compareValues.Index(i).Float()
+						return compareValues.Index(i).Float() > compareValues.Index(j).Float()
 					}
 				}
 			default:
