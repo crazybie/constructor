@@ -40,7 +40,8 @@ please check the unit tests for usage.
 
 ## All supported converters:
 
-- from(field)
+- from(field) 
+<br>从指定字段提取值进行处理
     - input: none
     - output: field value
 - from(field, [field]...)
