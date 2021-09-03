@@ -1,7 +1,7 @@
 # Constructor
 A tiny tool to make data-parsing and constructing deadly easy.
 
-Just write a few tags and no more loading code anymore. Example:
+Just write a few tags and no more loading code anymore.  A complex example:
 
 ```go
 type LevelReward struct {
