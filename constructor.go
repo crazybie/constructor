@@ -17,13 +17,13 @@ import (
 	"strings"
 )
 
-type context struct {
+type Context struct {
 	obj       reflect.Value
 	fieldType reflect.Type
 }
 
-type converter func(data reflect.Value, ctx *context) reflect.Value
-type ConverterCreator func([]interface{}) converter
+type Converter func(data reflect.Value, ctx *Context) reflect.Value
+type ConverterCreator func([]interface{}) Converter
 
 var ConverterFactory = map[string]ConverterCreator{}
 
@@ -86,12 +86,12 @@ func tokenize(input string) []string {
 // expr: call *{ '|' call }
 // arg: ident | expr
 // call: ident '(' arg *{',' arg} ')'
-func parseConverter(input string) converter {
+func parseConverter(input string) Converter {
 	tokens := tokenize(input)
 	cur := 0
-	var call func() converter
+	var call func() Converter
 
-	expr := func() converter {
+	expr := func() Converter {
 		var r []interface{}
 		if c := call(); c != nil {
 			r = append(r, c)
@@ -113,7 +113,7 @@ func parseConverter(input string) converter {
 		cur++
 		return r
 	}
-	call = func() converter {
+	call = func() Converter {
 		fnName := tokens[cur]
 		if cur+1 < len(tokens) && tokens[cur+1] == "(" {
 			cur += 2
@@ -139,8 +139,8 @@ func parseConverter(input string) converter {
 }
 
 func registerIntConverter(funName string, bitSz int) {
-	ConverterFactory[funName] = func(args []interface{}) converter {
-		return func(valueStr reflect.Value, ctx *context) (ret reflect.Value) {
+	ConverterFactory[funName] = func(args []interface{}) Converter {
+		return func(valueStr reflect.Value, ctx *Context) (ret reflect.Value) {
 			v, err := strconv.ParseInt(valueStr.String(), 10, bitSz)
 			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
 			return reflect.ValueOf(v).Convert(buildInTypes[funName])
@@ -149,8 +149,8 @@ func registerIntConverter(funName string, bitSz int) {
 }
 
 func registerFloatConverter(funName string, bitSz int) {
-	ConverterFactory[funName] = func(args []interface{}) converter {
-		return func(valueStr reflect.Value, ctx *context) (ret reflect.Value) {
+	ConverterFactory[funName] = func(args []interface{}) Converter {
+		return func(valueStr reflect.Value, ctx *Context) (ret reflect.Value) {
 			v, err := strconv.ParseFloat(valueStr.String(), bitSz)
 			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
 			return reflect.ValueOf(v).Convert(buildInTypes[funName])
@@ -165,11 +165,11 @@ func registerBuildInConverters() {
 	registerFloatConverter(`float32`, 32)
 	registerFloatConverter(`float64`, 64)
 
-	ConverterFactory[`sequence`] = func(args []interface{}) converter {
-		return func(rows reflect.Value, ctx *context) reflect.Value {
+	ConverterFactory[`sequence`] = func(args []interface{}) Converter {
+		return func(rows reflect.Value, ctx *Context) reflect.Value {
 			v := rows
 			for _, op := range args {
-				if v = op.(converter)(v, ctx); !v.IsValid() {
+				if v = op.(Converter)(v, ctx); !v.IsValid() {
 					break
 				}
 			}
@@ -177,16 +177,16 @@ func registerBuildInConverters() {
 		}
 	}
 
-	ConverterFactory[`from`] = func(args []interface{}) converter {
+	ConverterFactory[`from`] = func(args []interface{}) Converter {
 		switch {
 		case len(args) == 1:
-			return func(_ reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(_ reflect.Value, ctx *Context) (ret reflect.Value) {
 				ret = ctx.obj.FieldByName(args[0].(string))
 				panicIf(!ret.IsValid(), "invalid filed name: %v", args[0])
 				return
 			}
 		case len(args) > 1:
-			return func(_ reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(_ reflect.Value, ctx *Context) (ret reflect.Value) {
 				for idx, arg := range args {
 					v := ctx.obj.FieldByName(arg.(string))
 					panicIf(!v.IsValid(), "invalid filed name: %v", arg)
@@ -201,10 +201,10 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`split`] = func(args []interface{}) converter {
+	ConverterFactory[`split`] = func(args []interface{}) Converter {
 		switch len(args) {
 		case 1:
-			return func(s reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(s reflect.Value, ctx *Context) (ret reflect.Value) {
 				if s.String() != "" {
 					strs := strings.Split(s.String(), args[0].(string))
 					ret = reflect.ValueOf(strs)
@@ -212,8 +212,8 @@ func registerBuildInConverters() {
 				return
 			}
 		case 2:
-			return func(s reflect.Value, ctx *context) (ret reflect.Value) {
-				op := args[1].(converter)
+			return func(s reflect.Value, ctx *Context) (ret reflect.Value) {
+				op := args[1].(Converter)
 				if s.String() != "" {
 					strs := strings.Split(s.String(), args[0].(string))
 					for idx, s := range strs {
@@ -230,9 +230,9 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`map`] = func(args []interface{}) converter {
-		return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
-			op := args[0].(converter)
+	ConverterFactory[`map`] = func(args []interface{}) Converter {
+		return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
+			op := args[0].(Converter)
 			for i := 0; i < rows.Len(); i++ {
 				v := op(rows.Index(i), ctx)
 				if !ret.IsValid() {
@@ -244,18 +244,18 @@ func registerBuildInConverters() {
 		}
 	}
 
-	ConverterFactory[`select`] = func(args []interface{}) converter {
+	ConverterFactory[`select`] = func(args []interface{}) Converter {
 		idx, err := strconv.Atoi(args[0].(string))
 		panicIf(err != nil, "not number: %v", args[0])
-		return func(row reflect.Value, ctx *context) (ret reflect.Value) {
+		return func(row reflect.Value, ctx *Context) (ret reflect.Value) {
 			return row.Index(idx)
 		}
 	}
 
-	ConverterFactory[`dict`] = func(args []interface{}) converter {
+	ConverterFactory[`dict`] = func(args []interface{}) Converter {
 		switch args[0].(type) {
 		case string:
-			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
 				field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
 				panicIf(!ok, "invalid field: %v", args[0])
 				for i := 0; i < rows.Len(); i++ {
@@ -268,12 +268,12 @@ func registerBuildInConverters() {
 				}
 				return
 			}
-		case converter:
-			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
+		case Converter:
+			return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
 				for i := 0; i < rows.Len(); i++ {
 					src := rows.Index(i)
-					key := args[0].(converter)(src, ctx)
-					val := args[1].(converter)(src, ctx)
+					key := args[0].(Converter)(src, ctx)
+					val := args[1].(Converter)(src, ctx)
 					if !ret.IsValid() {
 						ret = reflect.MakeMapWithSize(reflect.MapOf(key.Type(), val.Type()), rows.Len())
 					}
@@ -285,10 +285,10 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`obj`] = func(args []interface{}) converter {
+	ConverterFactory[`obj`] = func(args []interface{}) Converter {
 		switch {
 		case len(args) == 1:
-			return func(row reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(row reflect.Value, ctx *Context) (ret reflect.Value) {
 				ret = reflect.New(findType(args[0].(string), ctx.fieldType))
 				for i := 0; i < row.Len(); i++ {
 					src := row.Index(i)
@@ -298,7 +298,7 @@ func registerBuildInConverters() {
 				return
 			}
 		case len(args) > 1:
-			return func(row reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(row reflect.Value, ctx *Context) (ret reflect.Value) {
 				ret = reflect.New(findType(args[0].(string), ctx.fieldType))
 				for i := 0; i < row.Len(); i++ {
 					src := row.Index(i)
@@ -313,10 +313,10 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`group`] = func(args []interface{}) converter {
+	ConverterFactory[`group`] = func(args []interface{}) Converter {
 		switch len(args) {
 		case 1:
-			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
 				field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
 				panicIf(!ok, "invalid field %v", args[0])
 
@@ -335,9 +335,9 @@ func registerBuildInConverters() {
 				return
 			}
 		case 2:
-			return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
+			return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
 				tmp := newConverter(`group`, args[:1])(rows, ctx)
-				op := args[1].(converter)
+				op := args[1].(Converter)
 				for iter := tmp.MapRange(); iter.Next(); {
 					k := iter.Key()
 					src := iter.Value()
@@ -353,8 +353,8 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`sort`] = func(args []interface{}) converter {
-		return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
+	ConverterFactory[`sort`] = func(args []interface{}) Converter {
+		return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
 			var elemType reflect.Type
 			var compareValues reflect.Value
 
@@ -412,20 +412,20 @@ func registerBuildInConverters() {
 	}
 }
 
-func newConverter(funName string, args []interface{}) converter {
+func newConverter(funName string, args []interface{}) Converter {
 	if c, ok := ConverterFactory[funName]; ok {
 		return c(args)
 	}
 	return nil
 }
 
-var typeConverterCache = make(map[reflect.Type]map[string]converter)
+var typeConverterCache = make(map[reflect.Type]map[string]Converter)
 
-func parseFields(objType reflect.Type) (ret map[string]converter) {
+func parseFields(objType reflect.Type) (ret map[string]Converter) {
 	if cache, ok := typeConverterCache[objType]; ok {
 		return cache
 	}
-	ret = make(map[string]converter)
+	ret = make(map[string]Converter)
 	for i := 0; i < objType.NumField(); i++ {
 		fieldName := objType.Field(i).Name
 		f := objType.Field(i).Tag.Get("cvt")
@@ -442,7 +442,7 @@ func constructObj(objValue reflect.Value) {
 
 	objType := objValue.Type()
 	converters := parseFields(objType)
-	ctx := &context{obj: objValue}
+	ctx := &Context{obj: objValue}
 
 	fieldsCnt := objType.NumField()
 	for i := 0; i < fieldsCnt; i++ {

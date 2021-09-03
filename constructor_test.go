@@ -158,8 +158,8 @@ func Test_CustomConverter(t *testing.T) {
 		Id:  1,
 		Str: "ABC",
 	}
-	ConverterFactory[`lower`] = func(args []interface{}) converter {
-		return func(data reflect.Value, ctx *context) reflect.Value {
+	ConverterFactory[`lower`] = func([]interface{}) Converter {
+		return func(data reflect.Value, ctx *Context) reflect.Value {
 			return reflect.ValueOf(strings.ToLower(data.Interface().(string)))
 		}
 	}
