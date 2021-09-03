@@ -36,13 +36,12 @@ r := &RewardCfgs{}
 LoadAndConstruct(r, &r.Data, tableCsv)
 
 ```
-#Usage
+## Usage
 
-Data flow:<br>
+converter1(args...) | converter2(args...) | converter3(args...) | converter4(args...)...
 <br> 类似unix管道，上个函数的输出用|作为下个函数的输入，然后级联下去。
-<br> converter1(args...)|converter2(args...)|converter3(args...)|converter4(args...)...
 
-please check the unit tests for usage.
+Please check the unit tests for usage.
 
 ## All supported converters
 
