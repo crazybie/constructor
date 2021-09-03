@@ -38,30 +38,33 @@ LoadAndConstruct(r, &r.Data, tableCsv)
 ```
 please check the unit tests for usage.
 
-## All supported converters:
+## All supported converters
+
+Data flow:
+<intput> converter(args...) <ouput> | <next converter>...
 
 - from(field)
     - input: none
     - output: field value
 - from(field, [field]...)
-    - input: struct field
+    - input: none
     - output: slice of field values
 - split(sep)
-    - input: none
+    - input: string
     - output: slice of string
-- split(sep, converter)
-  - input: string value
-  - output: slice of value converted by converter
+- split(sep, fn)
+  - input: string
+  - output: slice of value converted by fn
 - select(idx)
   - input: slice
   - output: slice element at idx 
-- map(converter)
+- map(fn)
     - input: slice 
-    - output: slice of return value of converter
-- dict(field)
-    - input: slice of struct
-    - output: dict with field as key and struct as value    
-- dict(key, val)
+    - output: slice of return value of fn
+- dict(key_field)
+    - input: slice of struct pointer
+    - output: dict with key_field as key and struct pointer as value    
+- dict(key_field, val_fn)
     - input: slice of slice
     - output: sub slice as input of key convertor and result as key, same to val.
 - obj(type) / obj(type, [field,]...)
@@ -69,10 +72,10 @@ please check the unit tests for usage.
     - output: instance of type with fields assigned from slice elements
 - group(field)
     - input: slice of struct
-    - output: dict fo slice of struct, with field as key
+    - output: dict of slice of struct, with field as key
 - group(field, reduce)
     - input: slice of struct
-    - output: dict fo slice of struct, with field as key and slice reduced by reduce converter
+    - output: dict of slice of struct, with field as key and slice reduced by reduce converter
 - sort(field) / sort(field, desc)
     - input: slice of struct
     - output: slice sorted by field
