@@ -36,48 +36,67 @@ r := &RewardCfgs{}
 LoadAndConstruct(r, &r.Data, tableCsv)
 
 ```
+#Usage
+
+Data flow:<br>
+<intput> -> converter(args...) -> <ouput> | -> <next converter> -> | ...
+<br> 类似unix管道，上个函数的输出用|作为下个函数的输入，然后级联下去。
+<br> converter1(args...)|converter2(args...)|converter3(args...)|converter4(args...)...
+
 please check the unit tests for usage.
 
 ## All supported converters
 
-Data flow:
-<intput> converter(args...) <ouput> | <next converter>...
-
 - from(field) 
-<br>从指定字段提取值进行处理
+<br>从单个指定字段提取值
     - input: none
     - output: field value
 - from(field, [field]...)
+<br>从多个字段依次提取值生成数组
     - input: none
     - output: slice of field values
 - split(sep)
+<br>将输入字符串分割成字符串数组
     - input: string
     - output: slice of string
 - split(sep, fn)
+  <br> 将输入字符串分割成字符串数组，再对每个元素用fn进行转换
   - input: string
   - output: slice of value converted by fn
 - select(idx)
+<br>选择输入数组的第idx个元素
   - input: slice
   - output: slice element at idx 
 - map(fn)
+  <br>将输入数组的每个元素用fn进行转换，生成新的数组
     - input: slice 
     - output: slice of return value of fn
 - dict(key_field)
+  <br>将输入的对象数组按照指定字段的值最为键，对象作为值，生成字典
     - input: slice of struct pointer
     - output: dict with key_field as key and struct pointer as value    
-- dict(key_field, val_fn)
+- dict(key_fn, val_fn)
+  <br>将输入的对象数组的每个元素传给key_fn生成key，再传给val_fn生成val，用key，val填入字典
     - input: slice of slice
     - output: sub slice as input of key convertor and result as key, same to val.
-- obj(type) / obj(type, [field,]...)
+- obj(type) / 
+  <br>用type创建一个对象，将输入的数组的每个元素依次赋值给这个对象的每个字段。
     - input: slice
     - output: instance of type with fields assigned from slice elements
+- obj(type, [field,]...)
+  <br>用type创建一个对象，将输入的数组的每个元素赋值给这个对象的字段，赋值顺序根据field参数指定。
+  - input: slice
+  - output: instance of type with fields assigned from slice elements
 - group(field)
+  <br>对对象数组的每个元素，以字段值为键，相同键的对象组成数组作为值，生成字典
     - input: slice of struct
     - output: dict of slice of struct, with field as key
 - group(field, reduce)
+  <br>类似group(field)，只是值数组会输入到reduce函数生成结果，来作为新的值
     - input: slice of struct
     - output: dict of slice of struct, with field as key and slice reduced by reduce converter
 - sort(field) / sort(field, desc)
+  <br>按字段对对象数组进行排序，desc表示降序，默认升序。
     - input: slice of struct
     - output: slice sorted by field
     
