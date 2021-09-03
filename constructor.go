@@ -52,7 +52,7 @@ func findType(t string, tp reflect.Type) reflect.Type {
 			return tp
 		}
 	}
-	panic(fmt.Sprintf("type not found: %v", t))
+	panic(fmt.Errorf("type not found: %v", t))
 }
 
 func panicIf(failed bool, msg string, a ...interface{}) {
@@ -62,7 +62,7 @@ func panicIf(failed bool, msg string, a ...interface{}) {
 }
 
 func tokenize(input string) []string {
-	tokens := []string{}
+	var tokens []string
 	s := 0
 	i := 0
 	for ; i < len(input); i++ {
@@ -93,7 +93,7 @@ func parseConverter(input string) converter {
 	var call func() converter
 
 	expr := func() converter {
-		r := []interface{}{}
+		var r []interface{}
 		if c := call(); c != nil {
 			r = append(r, c)
 		}
@@ -118,7 +118,7 @@ func parseConverter(input string) converter {
 		fnName := tokens[cur]
 		if cur+1 < len(tokens) && tokens[cur+1] == "(" {
 			cur += 2
-			args := []interface{}{}
+			var args []interface{}
 			for tokens[cur] != ")" {
 				args = append(args, arg())
 				if tokens[cur] == "," {
@@ -139,10 +139,20 @@ func parseConverter(input string) converter {
 	return expr()
 }
 
-func registerNumberConverter(funName string) {
+func registerIntConverter(funName string, bitSz int) {
 	ConverterFactory[funName] = func(args []interface{}) converter {
 		return func(valueStr reflect.Value, ctx *context) (ret reflect.Value) {
-			v, err := strconv.ParseFloat(valueStr.String(), 64)
+			v, err := strconv.ParseInt(valueStr.String(), 10, bitSz)
+			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
+			return reflect.ValueOf(v).Convert(buildInTypes[funName])
+		}
+	}
+}
+
+func registerFloatConverter(funName string, bitSz int) {
+	ConverterFactory[funName] = func(args []interface{}) converter {
+		return func(valueStr reflect.Value, ctx *context) (ret reflect.Value) {
+			v, err := strconv.ParseFloat(valueStr.String(), bitSz)
 			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
 			return reflect.ValueOf(v).Convert(buildInTypes[funName])
 		}
@@ -150,11 +160,11 @@ func registerNumberConverter(funName string) {
 }
 
 func registerBuildInConverters() {
-	registerNumberConverter(`int`)
-	registerNumberConverter(`int32`)
-	registerNumberConverter(`int64`)
-	registerNumberConverter(`float32`)
-	registerNumberConverter(`float64`)
+	registerIntConverter(`int`, 32)
+	registerIntConverter(`int32`, 32)
+	registerIntConverter(`int64`, 64)
+	registerFloatConverter(`float32`, 32)
+	registerFloatConverter(`float64`, 64)
 
 	ConverterFactory[`sequence`] = func(args []interface{}) converter {
 		return func(rows reflect.Value, ctx *context) reflect.Value {
@@ -401,12 +411,14 @@ func constructObj(objValue reflect.Value) {
 	panicIf(objValue.Kind() != reflect.Struct, "expect struct")
 
 	objType := objValue.Type()
-	ctx := &context{obj: objValue}
 	converters := parseFields(objType)
-	for i := 0; i < objType.NumField(); i++ {
+	ctx := &context{obj: objValue}
+
+	fieldsCnt := objType.NumField()
+	for i := 0; i < fieldsCnt; i++ {
 		fieldInfo := objType.Field(i)
-		f := objValue.Field(i)
 		if c, ok := converters[fieldInfo.Name]; ok {
+			f := objValue.Field(i)
 			ctx.fieldType = fieldInfo.Type
 			v := c(f, ctx)
 			if v.IsValid() {
@@ -444,27 +456,24 @@ func Construct(ptr interface{}) (err error) {
 }
 
 func UnmarshalStringToSlice(slicePtr interface{}, csv string) error {
-	sliceValue := reflect.ValueOf(slicePtr)
-	panicIf(sliceValue.Kind() != reflect.Ptr, "expect pointer to slice")
-	rows := sliceValue.Elem()
-	panicIf(rows.Kind() != reflect.Slice, "expect pointer to slice")
-	sliceElemType := rows.Type().Elem()
+	slicePtrValue := reflect.ValueOf(slicePtr)
+	panicIf(slicePtrValue.Kind() != reflect.Ptr, "expect pointer to slice")
+	slice := slicePtrValue.Elem()
+	panicIf(slice.Kind() != reflect.Slice, "expect pointer to slice")
+	sliceElemType := slice.Type().Elem()
 	panicIf(sliceElemType.Kind() != reflect.Ptr, "expect slice of pointer")
 
 	errChan := make(chan error)
-	c := reflect.MakeChan(reflect.ChanOf(reflect.BothDir, sliceElemType.Elem()), 0)
+	c := reflect.MakeChan(reflect.ChanOf(reflect.BothDir, sliceElemType), 0)
 	go func() {
 		errChan <- gocsv.UnmarshalToChan(strings.NewReader(csv), c.Interface())
 	}()
-	data := rows
 	for {
 		v, notClosed := c.Recv()
 		if !notClosed || v.Interface() == nil {
 			break
 		}
-		vp := reflect.New(reflect.TypeOf(v.Interface()))
-		vp.Elem().Set(v)
-		data = reflect.Append(data, vp)
+		slice = reflect.Append(slice, v)
 	}
 	select {
 	case err := <-errChan:
@@ -474,7 +483,7 @@ func UnmarshalStringToSlice(slicePtr interface{}, csv string) error {
 	default:
 	}
 
-	rows.Set(data)
+	slicePtrValue.Elem().Set(slice)
 	return nil
 }
 
