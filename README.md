@@ -119,7 +119,7 @@ Please check the unit tests for usage.
 ```
 cpu: AMD Ryzen 5 2500U with Radeon Vega Mobile Gfx  
 Benchmark_LoadAndConstruct
-Benchmark_LoadAndConstruct-8   	   12820	     91264 ns/op	   13883 B/op	     455 allocs/op
+Benchmark_LoadAndConstruct-8   	   13798	     81496 ns/op	   13768 B/op	     443 allocs/op
 Benchmark_LoadManually
-Benchmark_LoadManually-8       	   24999	     48401 ns/op	   10231 B/op	     157 allocs/op
+Benchmark_LoadManually-8       	   24094	     49473 ns/op	   10229 B/op	     157 allocs/op
 ```
