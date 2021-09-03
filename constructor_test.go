@@ -2,13 +2,18 @@ package constructor
 
 import (
 	"github.com/gocarina/gocsv"
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
 )
+
+func Equal(t *testing.T, a, b interface{}) {
+	if a != b {
+		t.Fatalf("%v != %v", a, b)
+	}
+}
 
 type LevelReward struct {
 	MinLevel int32
@@ -41,40 +46,40 @@ func Test_basic(t *testing.T) {
 
 	r := &RewardCfgs{}
 	_, err := LoadAndConstruct(r, &r.Data, tableCsv)
-	assert.Zero(t, err)
+	Equal(t, err, nil)
 
-	assert.Equal(t, len(r.Data), 3)
+	Equal(t, len(r.Data), 3)
 
-	assert.Equal(t, r.Data[0].ModeValue[0], r.Data[0].Mode)
-	assert.Equal(t, r.Data[0].ModeValue[1], r.Data[0].Value)
+	Equal(t, r.Data[0].ModeValue[0], r.Data[0].Mode)
+	Equal(t, r.Data[0].ModeValue[1], r.Data[0].Value)
 
-	assert.Equal(t, len(r.Data[0].Rewards), 5)
+	Equal(t, len(r.Data[0].Rewards), 5)
 	rewards := r.Data[0].Rewards
-	assert.Equal(t, rewards[0].MinLevel, int32(1))
-	assert.Equal(t, rewards[0].RewardId, int64(50001))
-	assert.Equal(t, rewards[1].MinLevel, int32(11))
-	assert.Equal(t, rewards[1].RewardId, int64(50002))
-	assert.Equal(t, rewards[2].MinLevel, int32(16))
-	assert.Equal(t, rewards[2].RewardId, int64(50003))
-	assert.Equal(t, rewards[3].MinLevel, int32(21))
-	assert.Equal(t, rewards[3].RewardId, int64(50004))
-	assert.Equal(t, rewards[4].MinLevel, int32(23))
-	assert.Equal(t, rewards[4].RewardId, int64(50005))
+	Equal(t, rewards[0].MinLevel, int32(1))
+	Equal(t, rewards[0].RewardId, int64(50001))
+	Equal(t, rewards[1].MinLevel, int32(11))
+	Equal(t, rewards[1].RewardId, int64(50002))
+	Equal(t, rewards[2].MinLevel, int32(16))
+	Equal(t, rewards[2].RewardId, int64(50003))
+	Equal(t, rewards[3].MinLevel, int32(21))
+	Equal(t, rewards[3].RewardId, int64(50004))
+	Equal(t, rewards[4].MinLevel, int32(23))
+	Equal(t, rewards[4].RewardId, int64(50005))
 
-	assert.Equal(t, r.Dict[1].ID, int64(1))
-	assert.Equal(t, r.Dict[1].Value, int32(1))
+	Equal(t, r.Dict[1].ID, int64(1))
+	Equal(t, r.Dict[1].Value, int32(1))
 
-	assert.Equal(t, r.Dict[2].ID, int64(2))
-	assert.Equal(t, r.Dict[2].Value, int32(3))
+	Equal(t, r.Dict[2].ID, int64(2))
+	Equal(t, r.Dict[2].Value, int32(3))
 
-	assert.Equal(t, r.Dict[3].ID, int64(3))
-	assert.Equal(t, r.Dict[3].Value, int32(6))
+	Equal(t, r.Dict[3].ID, int64(3))
+	Equal(t, r.Dict[3].Value, int32(6))
 
-	assert.Equal(t, len(r.Mode), 1)
-	assert.Equal(t, len(r.Mode[1]), 3)
-	assert.Equal(t, r.Mode[1][1], r.Dict[1])
-	assert.Equal(t, r.Mode[1][2], r.Dict[2])
-	assert.Equal(t, r.Mode[1][3], r.Dict[3])
+	Equal(t, len(r.Mode), 1)
+	Equal(t, len(r.Mode[1]), 3)
+	Equal(t, r.Mode[1][1], r.Dict[1])
+	Equal(t, r.Mode[1][2], r.Dict[2])
+	Equal(t, r.Mode[1][3], r.Dict[3])
 }
 
 func Benchmark_LoadAndConstruct(b *testing.B) {
@@ -136,10 +141,10 @@ func Test_Dict2(t *testing.T) {
 		Kvs: "k1:11;k2:22;k3:33",
 	}
 	_ = Construct(d)
-	assert.Equal(t, len(d.Kv), 3)
-	assert.Equal(t, d.Kv[`k1`], float64(11))
-	assert.Equal(t, d.Kv[`k2`], float64(22))
-	assert.Equal(t, d.Kv[`k3`], float64(33))
+	Equal(t, len(d.Kv), 3)
+	Equal(t, d.Kv[`k1`], float64(11))
+	Equal(t, d.Kv[`k2`], float64(22))
+	Equal(t, d.Kv[`k3`], float64(33))
 }
 
 func Test_CustomConverter(t *testing.T) {
@@ -159,5 +164,5 @@ func Test_CustomConverter(t *testing.T) {
 		}
 	}
 	_ = Construct(d)
-	assert.Equal(t, d.LowerStr, "abc")
+	Equal(t, d.LowerStr, "abc")
 }
