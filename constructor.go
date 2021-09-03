@@ -510,7 +510,7 @@ func UnmarshalStringToSlice(slicePtr interface{}, csv string) error {
 	return nil
 }
 
-func LoadAndConstruct(objPtr interface{}, slicePtr interface{}, csv string) (retObjPtr interface{}, err error) {
+func LoadAndConstruct(slicePtr interface{}, csv string, objPtr interface{}) (retObjPtr interface{}, err error) {
 	err = UnmarshalStringToSlice(slicePtr, csv)
 	if err != nil {
 		return nil, err

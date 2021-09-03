@@ -45,7 +45,7 @@ ID,Mode,Value,Reward,Reward2,DESC
 func Test_basic(t *testing.T) {
 
 	r := &RewardCfgs{}
-	_, err := LoadAndConstruct(r, &r.Data, tableCsv)
+	_, err := LoadAndConstruct(&r.Data, tableCsv, r)
 	Equal(t, err, nil)
 
 	Equal(t, len(r.Data), 3)
@@ -86,7 +86,7 @@ func Benchmark_LoadAndConstruct(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		r := &RewardCfgs{}
-		_, _ = LoadAndConstruct(r, &r.Data, tableCsv)
+		_, _ = LoadAndConstruct(&r.Data, tableCsv, r)
 	}
 }
 
