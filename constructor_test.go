@@ -79,19 +79,19 @@ func Test_basic(t *testing.T) {
 
 func Benchmark_LoadAndConstruct(b *testing.B) {
 	b.ReportAllocs()
-	r := &RewardCfgs{}
 	for i := 0; i < b.N; i++ {
+		r := &RewardCfgs{}
 		_, _ = LoadAndConstruct(r, &r.Data, tableCsv)
 	}
 }
 
 func Benchmark_LoadManually(b *testing.B) {
 	b.ReportAllocs()
-	ret := &RewardCfgs{
-		Dict: make(map[int64]*RewardCfg),
-		Mode: make(map[int32]map[int64]*RewardCfg),
-	}
 	for i := 0; i < b.N; i++ {
+		ret := &RewardCfgs{
+			Dict: make(map[int64]*RewardCfg),
+			Mode: make(map[int32]map[int64]*RewardCfg),
+		}
 		_ = gocsv.UnmarshalStringToCallback(tableCsv, func(e RewardCfg) {
 			rs := ret.Mode[e.Mode]
 			if rs == nil {
@@ -119,6 +119,7 @@ func Benchmark_LoadManually(b *testing.B) {
 			v := &e
 			ret.Mode[e.Mode][e.ID] = v
 			ret.Dict[e.ID] = v
+			ret.Data = append(ret.Data, v)
 		})
 	}
 }

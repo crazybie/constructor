@@ -78,14 +78,11 @@ please check the unit tests for usage.
     - output: slice sorted by field
     
 ## Performance
-
-- due to the heavy usage of reflection, it performs much worse than a hand-written loader,
-so it's not a good idea to use it to handle super large tables.
-
 - Benchmark result:
 ```
+cpu: AMD Ryzen 5 2500U with Radeon Vega Mobile Gfx  
 Benchmark_LoadAndConstruct
-Benchmark_LoadAndConstruct-8        1167          14942971 ns/op
+Benchmark_LoadAndConstruct-8   	   12820	     91264 ns/op	   13883 B/op	     455 allocs/op
 Benchmark_LoadManually
-Benchmark_LoadManually-8           47370             27035 ns/op
+Benchmark_LoadManually-8       	   24999	     48401 ns/op	   10231 B/op	     157 allocs/op
 ```
