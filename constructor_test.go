@@ -11,7 +11,7 @@ import (
 
 func Equal(t *testing.T, a, b interface{}) {
 	if a != b {
-		t.Fatalf("%v != %v", a, b)
+		t.Errorf("%v != %v", a, b)
 	}
 }
 
@@ -140,7 +140,7 @@ func Test_Dict2(t *testing.T) {
 		Id:  1,
 		Kvs: "k1:11;k2:22;k3:33",
 	}
-	_ = Construct(d)
+	Construct(d)
 	Equal(t, len(d.Kv), 3)
 	Equal(t, d.Kv[`k1`], float64(11))
 	Equal(t, d.Kv[`k2`], float64(22))
@@ -163,6 +163,32 @@ func Test_CustomConverter(t *testing.T) {
 			return reflect.ValueOf(strings.ToLower(data.Interface().(string)))
 		}
 	}
-	_ = Construct(d)
+	Construct(d)
 	Equal(t, d.LowerStr, "abc")
+}
+
+func TestConstruct_Sort(t *testing.T) {
+	type D struct {
+		S  []int
+		S2 []int `cvt:"from(S)|sort"`
+	}
+	d := D{
+		S: []int{1, 3, 2},
+	}
+	Construct(&d)
+	Equal(t, d.S2[0], 1)
+	Equal(t, d.S2[1], 2)
+	Equal(t, d.S2[2], 3)
+
+	type S struct {
+		S  []string
+		S2 []string `cvt:"from(S)|sort"`
+	}
+	s := S{
+		S: []string{"a", "c", "b"},
+	}
+	Construct(&s)
+	Equal(t, s.S2[0], "a")
+	Equal(t, s.S2[1], "b")
+	Equal(t, s.S2[2], "c")
 }

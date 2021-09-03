@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"github.com/gocarina/gocsv"
 	"reflect"
-	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -356,27 +355,58 @@ func registerBuildInConverters() {
 
 	ConverterFactory[`sort`] = func(args []interface{}) converter {
 		return func(rows reflect.Value, ctx *context) (ret reflect.Value) {
-			field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
-			fIdx := field.Index[0]
-			panicIf(!ok, "field not found: %v", args[0])
+			var elemType reflect.Type
+			var compareValues reflect.Value
 
-			f64Type := buildInTypes["float64"]
-			compareValues := make([]float64, 0, rows.Len())
-			for i := 0; i < rows.Len(); i++ {
-				compareValues = append(compareValues, rows.Index(i).Elem().Field(fIdx).Convert(f64Type).Float())
+			if len(args) > 0 {
+				field, ok := rows.Type().Elem().Elem().FieldByName(args[0].(string))
+				elemType = field.Type
+				fIdx := field.Index[0]
+				panicIf(!ok, "field not found: %v", args[0])
+
+				compareValues = reflect.MakeSlice(reflect.SliceOf(elemType), rows.Len(), rows.Len())
+				for i := 0; i < rows.Len(); i++ {
+					compareValues.Index(i).Set(rows.Index(i).Elem().Field(fIdx))
+				}
+			} else {
+				elemType = rows.Type().Elem()
+				compareValues = rows
 			}
 
 			asc := true
 			if len(args) > 1 && args[1].(string) == "desc" {
 				asc = false
 			}
-			sort.Slice(rows.Interface(), func(i, j int) bool {
-				if asc {
-					return compareValues[i] < compareValues[j]
-				} else {
-					return compareValues[i] > compareValues[j]
+			var cmp func(i, j int) bool
+			switch elemType.Kind() {
+			case reflect.String:
+				cmp = func(i, j int) bool {
+					if asc {
+						return compareValues.Index(i).String() < compareValues.Index(j).String()
+					} else {
+						return compareValues.Index(i).String() > compareValues.Index(i).String()
+					}
 				}
-			})
+			case reflect.Bool, reflect.Int, reflect.Int32, reflect.Int16, reflect.Int64:
+				cmp = func(i, j int) bool {
+					if asc {
+						return compareValues.Index(i).Int() < compareValues.Index(j).Int()
+					} else {
+						return compareValues.Index(i).Int() > compareValues.Index(i).Int()
+					}
+				}
+			case reflect.Float64, reflect.Float32:
+				cmp = func(i, j int) bool {
+					if asc {
+						return compareValues.Index(i).Float() < compareValues.Index(j).Float()
+					} else {
+						return compareValues.Index(i).Float() > compareValues.Index(i).Float()
+					}
+				}
+			default:
+				panic(fmt.Errorf("sort: don't know how to order type: %v", elemType.Name()))
+			}
+			sort.Slice(rows.Interface(), cmp)
 			return rows
 		}
 	}
@@ -436,13 +466,7 @@ func constructSlice(sliceValue reflect.Value) {
 	}
 }
 
-func Construct(ptr interface{}) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("construct object failed: %v, stack: %s", r, debug.Stack())
-		}
-	}()
-
+func Construct(ptr interface{}) {
 	v := reflect.ValueOf(ptr)
 	panicIf(v.Kind() != reflect.Ptr, "expect pointer")
 
@@ -452,7 +476,6 @@ func Construct(ptr interface{}) (err error) {
 	case reflect.Struct:
 		constructObj(v.Elem())
 	}
-	return nil
 }
 
 func UnmarshalStringToSlice(slicePtr interface{}, csv string) error {
@@ -492,15 +515,9 @@ func LoadAndConstruct(objPtr interface{}, slicePtr interface{}, csv string) (ret
 	if err != nil {
 		return nil, err
 	}
-	err = Construct(slicePtr)
-	if err != nil {
-		return nil, err
-	}
+	Construct(slicePtr)
 	if objPtr != nil {
-		err = Construct(objPtr)
-		if err != nil {
-			return nil, err
-		}
+		Construct(objPtr)
 	}
 	return objPtr, nil
 }
