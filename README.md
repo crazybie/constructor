@@ -41,6 +41,22 @@ LoadAndConstruct(r, &r.Data, tableCsv)
 converter1(args...) | converter2(args...) | converter3(args...) | converter4(args...)...
 <br> 类似unix管道，上个函数的输出用|作为下个函数的输入，然后级联下去。
 
+- 输入"1,2,3"给split(,)
+  - 结果["1", "2", "3"]
+- 输入["1", "2", "3"]给map(int)
+  - 结果[1,2,3]
+- 输入"1,2,3"给split(,,int)
+  - 结果[1,2,3]
+  - 效果相当于split(,)|map(int)
+- 输入"1:11,2:22"给split(,)|map(split(:,int))
+  - 结果[[1,11], [2,22]]
+- 输入[{a:1,b:2}, {a:11,b:22}]给dict(a)
+  - 结果{1:{a:1,b:2}, 11:{a:11,b:22}}
+- 输入[{a:1,b:2}, {a:1,b:22}]给group(a)
+  - 结果{ 1:[{a:1,b:2}, {a:1,b:22}] }
+- 输入[{a:1,b:2}, {a:1,b:22}]给group(a,dict(b))
+  - 结果{ 1:{ 2: {a:1,b:2}, 22:{a:1,b:22} } }
+
 Please check the unit tests for usage.
 
 ## All supported converters
@@ -77,7 +93,7 @@ Please check the unit tests for usage.
   <br>将输入的对象数组的每个元素传给key_fn生成key，再传给val_fn生成val，用key，val填入字典
     - input: slice of slice
     - output: sub slice as input of key convertor and result as key, same to val.
-- obj(type) / 
+- obj(type)
   <br>用type创建一个对象，将输入的数组的每个元素依次赋值给这个对象的每个字段。
     - input: slice
     - output: instance of type with fields assigned from slice elements
