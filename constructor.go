@@ -102,8 +102,11 @@ func parseConverter(input string) Converter {
 		}
 		if len(r) == 0 {
 			return nil
+		} else if len(r) == 1 {
+			return r[0].(Converter)
+		} else {
+			return newConverter("sequence", r)
 		}
-		return newConverter("sequence", r)
 	}
 	arg := func() interface{} {
 		if c := expr(); c != nil {
