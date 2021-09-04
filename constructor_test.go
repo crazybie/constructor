@@ -187,3 +187,46 @@ func TestConstruct_Sort(t *testing.T) {
 	Equal(t, s.S2[1], "b")
 	Equal(t, s.S2[2], "a")
 }
+
+func TestConstruct_FilterStr(t *testing.T) {
+	type D struct {
+		S  []string
+		S2 []string `cvt:"from(S)|filter(!zero)"`
+	}
+	d := D{
+		S: []string{"1", "", "2"},
+	}
+
+	Construct(&d)
+	Equal(t, len(d.S2), 2)
+	Equal(t, d.S2[0], "1")
+	Equal(t, d.S2[1], "2")
+}
+
+func TestConstruct_FilterInt(t *testing.T) {
+	type D struct {
+		S  []int
+		S2 []int `cvt:"from(S)|filter(!zero)"`
+	}
+	d := D{
+		S: []int{1, 0, 2},
+	}
+
+	Construct(&d)
+	Equal(t, len(d.S2), 2)
+	Equal(t, d.S2[0], 1)
+	Equal(t, d.S2[1], 2)
+
+	type D2 struct {
+		S  []int
+		S2 []int `cvt:"from(S)|filter(zero)"`
+	}
+	d2 := D2{
+		S: []int{1, 0, 2, 0},
+	}
+
+	Construct(&d2)
+	Equal(t, len(d2.S2), 2)
+	Equal(t, d2.S2[0], 0)
+	Equal(t, d2.S2[1], 0)
+}

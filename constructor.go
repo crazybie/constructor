@@ -25,7 +25,7 @@ type Context struct {
 type Converter func(data reflect.Value, ctx *Context) reflect.Value
 type ConverterCreator func([]interface{}) Converter
 
-var ConverterFactory = map[string]ConverterCreator{}
+var converterFactory = map[string]ConverterCreator{}
 
 var buildInTypes = map[string]reflect.Type{
 	"int":     reflect.TypeOf(0),
@@ -66,7 +66,7 @@ func tokenize(input string) []string {
 	i := 0
 	for ; i < len(input); i++ {
 		r := input[i]
-		if r == '(' || r == ')' || r == '|' || r == ',' || r == ' ' {
+		if r == '(' || r == ')' || r == '|' || r == ',' || r == ' ' || r == '!' {
 			if s != i {
 				tokens = append(tokens, input[s:i])
 			}
@@ -83,7 +83,8 @@ func tokenize(input string) []string {
 	return tokens
 }
 
-// expr: call *{ '|' call }
+// simp_expr: call | !call
+// expr: simp_expr *{ '|' simp_expr }
 // arg: ident | expr
 // call: ident '(' arg *{',' arg} ')'
 func parseConverter(input string) Converter {
@@ -91,14 +92,22 @@ func parseConverter(input string) Converter {
 	cur := 0
 	var call func() Converter
 
+	simpleExpr := func() Converter {
+		if tokens[cur] == "!" {
+			cur++
+			return newConverter("not", []interface{}{call()})
+		}
+		return call()
+	}
+
 	expr := func() Converter {
 		var r []interface{}
-		if c := call(); c != nil {
+		if c := simpleExpr(); c != nil {
 			r = append(r, c)
 		}
 		for tokens[cur] == "|" {
 			cur++
-			r = append(r, call())
+			r = append(r, simpleExpr())
 		}
 		if len(r) == 0 {
 			return nil
@@ -142,7 +151,7 @@ func parseConverter(input string) Converter {
 }
 
 func registerIntConverter(funName string, bitSz int) {
-	ConverterFactory[funName] = func(args []interface{}) Converter {
+	converterFactory[funName] = func(args []interface{}) Converter {
 		return func(valueStr reflect.Value, ctx *Context) (ret reflect.Value) {
 			v, err := strconv.ParseInt(valueStr.String(), 10, bitSz)
 			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
@@ -152,7 +161,7 @@ func registerIntConverter(funName string, bitSz int) {
 }
 
 func registerFloatConverter(funName string, bitSz int) {
-	ConverterFactory[funName] = func(args []interface{}) Converter {
+	converterFactory[funName] = func(args []interface{}) Converter {
 		return func(valueStr reflect.Value, ctx *Context) (ret reflect.Value) {
 			v, err := strconv.ParseFloat(valueStr.String(), bitSz)
 			panicIf(err != nil, "failed to convert %v to %v", valueStr.String(), funName)
@@ -160,9 +169,12 @@ func registerFloatConverter(funName string, bitSz int) {
 		}
 	}
 }
+func RegisterFn(name string, fn ConverterCreator) {
+	converterFactory[name] = fn
+}
 
 func RegisterNormalFn(name string, fn interface{}) {
-	ConverterFactory[name] = func(args []interface{}) Converter {
+	converterFactory[name] = func(args []interface{}) Converter {
 		fnVal := reflect.ValueOf(fn)
 		return func(data reflect.Value, ctx *Context) reflect.Value {
 			fnArgs := []reflect.Value{data}
@@ -185,7 +197,15 @@ func registerBuildInConverters() {
 	registerFloatConverter(`float32`, 32)
 	registerFloatConverter(`float64`, 64)
 
-	ConverterFactory[`sequence`] = func(args []interface{}) Converter {
+	converterFactory[`not`] = func(args []interface{}) Converter {
+		return func(rows reflect.Value, ctx *Context) reflect.Value {
+			op := args[0].(Converter)
+			r := op(rows, ctx)
+			return reflect.ValueOf(!r.Bool())
+		}
+	}
+
+	converterFactory[`sequence`] = func(args []interface{}) Converter {
 		return func(rows reflect.Value, ctx *Context) reflect.Value {
 			v := rows
 			for _, op := range args {
@@ -197,7 +217,7 @@ func registerBuildInConverters() {
 		}
 	}
 
-	ConverterFactory[`from`] = func(args []interface{}) Converter {
+	converterFactory[`from`] = func(args []interface{}) Converter {
 		switch {
 		case len(args) == 1:
 			return func(_ reflect.Value, ctx *Context) (ret reflect.Value) {
@@ -221,7 +241,26 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`split`] = func(args []interface{}) Converter {
+	RegisterFn("zero", func([]interface{}) Converter {
+		return func(value reflect.Value, ctx *Context) reflect.Value {
+			return reflect.ValueOf(value.IsZero())
+		}
+	})
+
+	converterFactory["filter"] = func(args []interface{}) Converter {
+		return func(slice reflect.Value, ctx *Context) reflect.Value {
+			ret := reflect.MakeSlice(slice.Type(), 0, slice.Cap())
+			predicate := args[0].(Converter)
+			for i := 0; i < slice.Len(); i++ {
+				if predicate(slice.Index(i), ctx).Bool() {
+					ret = reflect.Append(ret, slice.Index(i))
+				}
+			}
+			return ret
+		}
+	}
+
+	converterFactory[`split`] = func(args []interface{}) Converter {
 		switch len(args) {
 		case 1:
 			return func(s reflect.Value, ctx *Context) (ret reflect.Value) {
@@ -250,7 +289,7 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`map`] = func(args []interface{}) Converter {
+	converterFactory[`map`] = func(args []interface{}) Converter {
 		return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
 			op := args[0].(Converter)
 			for i := 0; i < rows.Len(); i++ {
@@ -264,7 +303,7 @@ func registerBuildInConverters() {
 		}
 	}
 
-	ConverterFactory[`select`] = func(args []interface{}) Converter {
+	converterFactory[`select`] = func(args []interface{}) Converter {
 		idx, err := strconv.Atoi(args[0].(string))
 		panicIf(err != nil, "not number: %v", args[0])
 		return func(row reflect.Value, ctx *Context) (ret reflect.Value) {
@@ -272,7 +311,7 @@ func registerBuildInConverters() {
 		}
 	}
 
-	ConverterFactory[`dict`] = func(args []interface{}) Converter {
+	converterFactory[`dict`] = func(args []interface{}) Converter {
 		switch args[0].(type) {
 		case string:
 			return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
@@ -305,7 +344,7 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`obj`] = func(args []interface{}) Converter {
+	converterFactory[`obj`] = func(args []interface{}) Converter {
 		switch {
 		case len(args) == 1:
 			return func(row reflect.Value, ctx *Context) (ret reflect.Value) {
@@ -333,7 +372,7 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`group`] = func(args []interface{}) Converter {
+	converterFactory[`group`] = func(args []interface{}) Converter {
 		switch len(args) {
 		case 1:
 			return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
@@ -373,7 +412,7 @@ func registerBuildInConverters() {
 		return nil
 	}
 
-	ConverterFactory[`sort`] = func(args []interface{}) Converter {
+	converterFactory[`sort`] = func(args []interface{}) Converter {
 		return func(rows reflect.Value, ctx *Context) (ret reflect.Value) {
 			var elemType reflect.Type
 			var compareValues reflect.Value
@@ -433,7 +472,7 @@ func registerBuildInConverters() {
 }
 
 func newConverter(funName string, args []interface{}) Converter {
-	if c, ok := ConverterFactory[funName]; ok {
+	if c, ok := converterFactory[funName]; ok {
 		return c(args)
 	}
 	return nil
