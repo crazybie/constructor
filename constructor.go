@@ -161,6 +161,23 @@ func registerFloatConverter(funName string, bitSz int) {
 	}
 }
 
+func RegisterNormalFn(name string, fn interface{}) {
+	ConverterFactory[name] = func(args []interface{}) Converter {
+		fnVal := reflect.ValueOf(fn)
+		return func(data reflect.Value, ctx *Context) reflect.Value {
+			fnArgs := []reflect.Value{data}
+			for _, arg := range args {
+				fnArgs = append(fnArgs, reflect.ValueOf(arg))
+			}
+			out := fnVal.Call(fnArgs)
+			if len(out) > 0 {
+				return out[0]
+			}
+			return reflect.Value{}
+		}
+	}
+}
+
 func registerBuildInConverters() {
 	registerIntConverter(`int`, 32)
 	registerIntConverter(`int32`, 32)

@@ -2,7 +2,6 @@ package constructor
 
 import (
 	"github.com/gocarina/gocsv"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -158,11 +157,7 @@ func Test_CustomConverter(t *testing.T) {
 		Id:  1,
 		Str: "ABC",
 	}
-	ConverterFactory[`lower`] = func([]interface{}) Converter {
-		return func(data reflect.Value, ctx *Context) reflect.Value {
-			return reflect.ValueOf(strings.ToLower(data.Interface().(string)))
-		}
-	}
+	RegisterNormalFn("lower", strings.ToLower)
 	Construct(d)
 	Equal(t, d.LowerStr, "abc")
 }
