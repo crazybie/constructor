@@ -33,7 +33,7 @@ ID,Mode,Value,Reward,Reward2,DESC
 
 
 r := &RewardCfgs{}
-LoadAndConstruct(r, &r.Data, tableCsv)
+LoadAndConstruct(&r.Data, tableCsv, r)
 
 ```
 ## Usage
