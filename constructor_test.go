@@ -129,104 +129,57 @@ func Benchmark_LoadManually(b *testing.B) {
 }
 
 func Test_Dict2(t *testing.T) {
-	type Data struct {
-		Id  int32
-		Kvs string
-		Kv  map[string]float64 `cvt:"from(Kvs)|split(;)|map(split(:))|dict(select(0),select(1)|float64)"`
-	}
-
-	d := &Data{
-		Id:  1,
-		Kvs: "k1:11;k2:22;k3:33",
-	}
-	Construct(d)
-	Equal(t, len(d.Kv), 3)
-	Equal(t, d.Kv[`k1`], float64(11))
-	Equal(t, d.Kv[`k2`], float64(22))
-	Equal(t, d.Kv[`k3`], float64(33))
+	r := Eval("split(;)|map(split(:))|dict(select(0),select(1)|float64)", "k1:11;k2:22;k3:33").(map[string]float64)
+	Equal(t, len(r), 3)
+	Equal(t, r[`k1`], float64(11))
+	Equal(t, r[`k2`], float64(22))
+	Equal(t, r[`k3`], float64(33))
 }
 
 func Test_CustomConverter(t *testing.T) {
-	type Data struct {
-		Id       int32
-		Str      string
-		LowerStr string `cvt:"from(Str)|lower"`
-	}
-
-	d := &Data{
-		Id:  1,
-		Str: "ABC",
-	}
 	RegisterNormalFn("lower", strings.ToLower)
-	Construct(d)
-	Equal(t, d.LowerStr, "abc")
+	r := Eval("lower", "ABC").(string)
+	Equal(t, r, "abc")
 }
 
 func TestConstruct_Sort(t *testing.T) {
-	type D struct {
-		S  []int
-		S2 []int `cvt:"from(S)|sort"`
-	}
-	d := D{
-		S: []int{1, 3, 2},
-	}
-	Construct(&d)
-	Equal(t, d.S2[0], 1)
-	Equal(t, d.S2[1], 2)
-	Equal(t, d.S2[2], 3)
+	a := Eval("sort", []int{1, 3, 2}).([]int)
+	Equal(t, a[0], 1)
+	Equal(t, a[1], 2)
+	Equal(t, a[2], 3)
 
-	type S struct {
-		S  []string
-		S2 []string `cvt:"from(S)|sort(_,desc)"`
-	}
-	s := S{
-		S: []string{"a", "c", "b"},
-	}
-	Construct(&s)
-	Equal(t, s.S2[0], "c")
-	Equal(t, s.S2[1], "b")
-	Equal(t, s.S2[2], "a")
+	r := Eval("sort(_,desc)", []string{"a", "c", "b"}).([]string)
+	Equal(t, r[0], "c")
+	Equal(t, r[1], "b")
+	Equal(t, r[2], "a")
 }
 
-func TestConstruct_FilterStr(t *testing.T) {
-	type D struct {
-		S  []string
-		S2 []string `cvt:"from(S)|filter(!zero)"`
-	}
-	d := D{
-		S: []string{"1", "", "2"},
-	}
-
-	Construct(&d)
-	Equal(t, len(d.S2), 2)
-	Equal(t, d.S2[0], "1")
-	Equal(t, d.S2[1], "2")
-}
-
-func TestConstruct_FilterInt(t *testing.T) {
-	type D struct {
-		S  []int
-		S2 []int `cvt:"from(S)|filter(!zero)"`
-	}
-	d := D{
-		S: []int{1, 0, 2},
+func TestConstruct_Filter(t *testing.T) {
+	{
+		r := Eval("filter(!zero)", []float32{1.1, 0, 2.2, 0}).([]float32)
+		Equal(t, len(r), 2)
+		Equal(t, r[0], float32(1.1))
+		Equal(t, r[1], float32(2.2))
 	}
 
-	Construct(&d)
-	Equal(t, len(d.S2), 2)
-	Equal(t, d.S2[0], 1)
-	Equal(t, d.S2[1], 2)
-
-	type D2 struct {
-		S  []int
-		S2 []int `cvt:"from(S)|filter(zero)"`
-	}
-	d2 := D2{
-		S: []int{1, 0, 2, 0},
+	{
+		r := Eval("filter(!zero)", []string{"1", "", "2"}).([]string)
+		Equal(t, len(r), 2)
+		Equal(t, r[0], "1")
+		Equal(t, r[1], "2")
 	}
 
-	Construct(&d2)
-	Equal(t, len(d2.S2), 2)
-	Equal(t, d2.S2[0], 0)
-	Equal(t, d2.S2[1], 0)
+	{
+		r := Eval("filter(!zero)", []int{1, 0, 2}).([]int)
+		Equal(t, len(r), 2)
+		Equal(t, r[0], 1)
+		Equal(t, r[1], 2)
+	}
+
+	{
+		r := Eval("filter(zero)", []int{1, 0, 2, 0}).([]int)
+		Equal(t, len(r), 2)
+		Equal(t, r[0], 0)
+		Equal(t, r[1], 0)
+	}
 }

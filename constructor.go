@@ -175,17 +175,21 @@ func RegisterFn(name string, fn ConverterCreator) {
 
 func RegisterNormalFn(name string, fn interface{}) {
 	converterFactory[name] = func(args []interface{}) Converter {
-		fnVal := reflect.ValueOf(fn)
 		return func(data reflect.Value, ctx *Context) reflect.Value {
-			fnArgs := []reflect.Value{data}
+			argsVal := []reflect.Value{data}
 			for _, arg := range args {
-				fnArgs = append(fnArgs, reflect.ValueOf(arg))
+				argsVal = append(argsVal, reflect.ValueOf(arg))
 			}
-			out := fnVal.Call(fnArgs)
-			if len(out) > 0 {
+			out := reflect.ValueOf(fn).Call(argsVal)
+			switch len(out) {
+			case 2:
+				if err, ok := out[1].Interface().(error); ok {
+					panic(err)
+				}
+				fallthrough
+			default:
 				return out[0]
 			}
-			return reflect.Value{}
 		}
 	}
 }
@@ -199,8 +203,7 @@ func registerBuildInConverters() {
 
 	converterFactory[`not`] = func(args []interface{}) Converter {
 		return func(rows reflect.Value, ctx *Context) reflect.Value {
-			op := args[0].(Converter)
-			r := op(rows, ctx)
+			r := args[0].(Converter)(rows, ctx)
 			return reflect.ValueOf(!r.Bool())
 		}
 	}
@@ -469,6 +472,10 @@ func registerBuildInConverters() {
 			return rows
 		}
 	}
+}
+
+func Eval(expr string, val interface{}) interface{} {
+	return parseConverter(expr)(reflect.ValueOf(val), nil).Interface()
 }
 
 func newConverter(funName string, args []interface{}) Converter {
