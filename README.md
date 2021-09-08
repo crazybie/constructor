@@ -126,4 +126,4 @@ Benchmark_LoadManually-8       	   24094	     49473 ns/op	   10229 B/op	     157
 
 ## Other related tools:
 - Much more powerfull, general and heavy. https://github.com/alecthomas/participle
-- BNF parser generator. https://github.com/goccmack/gocc
+- A complete BNF parser generator. https://github.com/goccmack/gocc
