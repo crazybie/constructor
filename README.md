@@ -123,3 +123,7 @@ Benchmark_LoadAndConstruct-8   	   13798	     81496 ns/op	   13768 B/op	     443
 Benchmark_LoadManually
 Benchmark_LoadManually-8       	   24094	     49473 ns/op	   10229 B/op	     157 allocs/op
 ```
+
+## Other similar tools:
+- Much more powerfull, general and heavy. https://github.com/alecthomas/participle
+- BNF parser generator. https://github.com/goccmack/gocc
